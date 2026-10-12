@@ -1,0 +1,413 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>dp-workflow 开发工作流</title>
+<style>
+  :root { color-scheme: light dark; }
+
+  .viz-root {
+    --surface:       #fcfcfb;
+    --page:          #f9f9f7;
+    --ink-1:         #0b0b0b;
+    --ink-2:         #52514e;
+    --ink-muted:     #898781;
+    --hairline:      #e1e0d9;
+    --baseline:      #c3c2b7;
+    --border:        rgba(11,11,11,0.12);
+    --edge-fwd:      #52514e;
+    --edge-back:     #898781;
+    --s-req:         #2a78d6;   /* blue   — dpwf-req 需求 */
+    --s-dev:         #eb6834;   /* orange — dpwf-dev 开发 */
+    --s-comment:     #1baf7a;   /* aqua   — dpwf-comment 注释 */
+    --s-review:      #eda100;   /* yellow — dpwf-review 审查 */
+    --s-flow:        #7a5af5;   /* violet — dp-workflow 编排 */
+    --s-done:        #898781;   /* neutral terminal */
+    color-scheme: light;
+    background: var(--page);
+    color: var(--ink-1);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    line-height: 1.5;
+    max-width: 1168px;
+    margin: 0 auto;
+    padding: 40px 24px 64px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) .viz-root {
+      --surface:    #1a1a19;
+      --page:       #0d0d0d;
+      --ink-1:      #ffffff;
+      --ink-2:      #c3c2b7;
+      --ink-muted:  #898781;
+      --hairline:   #2c2c2a;
+      --baseline:   #383835;
+      --border:     rgba(255,255,255,0.12);
+      --edge-fwd:   #c3c2b7;
+      --edge-back:  #898781;
+      --s-req:      #3987e5;
+      --s-dev:      #d95926;
+      --s-comment:  #199e70;
+      --s-review:   #c98500;
+      --s-done:     #898781;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] .viz-root {
+    --surface:    #1a1a19;
+    --page:       #0d0d0d;
+    --ink-1:      #ffffff;
+    --ink-2:      #c3c2b7;
+    --ink-muted:  #898781;
+    --hairline:   #2c2c2a;
+    --baseline:   #383835;
+    --border:     rgba(255,255,255,0.12);
+    --edge-fwd:   #c3c2b7;
+    --edge-back:  #898781;
+    --s-req:      #3987e5;
+    --s-dev:      #d95926;
+    --s-comment:  #199e70;
+    --s-review:   #c98500;
+    --s-done:     #898781;
+    color-scheme: dark;
+  }
+  :root[data-theme="light"] .viz-root {
+    --surface:    #fcfcfb;
+    --page:       #f9f9f7;
+    --ink-1:      #0b0b0b;
+    --ink-2:      #52514e;
+    --ink-muted:  #898781;
+    --hairline:   #e1e0d9;
+    --baseline:   #c3c2b7;
+    --border:     rgba(11,11,11,0.12);
+    --edge-fwd:   #52514e;
+    --edge-back:  #898781;
+    --s-req:      #2a78d6;
+    --s-dev:      #eb6834;
+    --s-comment:  #1baf7a;
+    --s-review:   #eda100;
+    --s-done:     #898781;
+    color-scheme: light;
+  }
+
+  .viz-root h1 {
+    font-size: 26px;
+    font-weight: 700;
+    margin: 0 0 6px;
+    letter-spacing: -0.01em;
+  }
+  .viz-root .subtitle {
+    color: var(--ink-2);
+    margin: 0 0 28px;
+    font-size: 14px;
+  }
+
+  .theme-toggle {
+    float: right;
+    font: inherit;
+    font-size: 12px;
+    color: var(--ink-2);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 10px;
+    cursor: pointer;
+  }
+  .theme-toggle:hover { border-color: var(--baseline); }
+
+  .diagram {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 12px 8px;
+    margin-bottom: 28px;
+  }
+  .diagram svg { width: 100%; height: auto; display: block; }
+
+  h2 {
+    font-size: 15px;
+    font-weight: 650;
+    margin: 30px 0 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--hairline);
+  }
+
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 24px;
+    margin-bottom: 4px;
+  }
+  .legend .item {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 13px;
+    color: var(--ink-2);
+  }
+  .legend .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 13px;
+  }
+  th, td {
+    text-align: left;
+    padding: 7px 10px;
+    border-bottom: 1px solid var(--hairline);
+    vertical-align: top;
+  }
+  th {
+    color: var(--ink-2);
+    font-weight: 600;
+    font-size: 12px;
+    border-bottom: 1px solid var(--baseline);
+  }
+  td.mono, th.mono { font-family: ui-monospace, "SFMono-Regular", "Consolas", monospace; font-size: 12px; }
+  td.mono { color: var(--ink-1); }
+
+  .rules { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
+  .rule {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+  }
+  .rule .n { font-size: 11px; color: var(--ink-muted); font-weight: 600; }
+  .rule .t { font-weight: 650; font-size: 13px; margin: 2px 0 3px; }
+  .rule .d { font-size: 12px; color: var(--ink-2); }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    font-size: 12px;
+    color: var(--ink-2);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 3px 11px;
+  }
+  .chip b { color: var(--ink-1); font-weight: 600; }
+
+  footer { margin-top: 34px; font-size: 12px; color: var(--ink-muted); }
+</style>
+</head>
+<body>
+<div class="viz-root">
+  <button class="theme-toggle" id="themeBtn" type="button">切换深浅色</button>
+  <h1>dp-workflow 开发工作流</h1>
+  <p class="subtitle">dp-workflow（编排）→ dpwf-req → dpwf-dev → (dpwf-comment ∥ dpwf-review) → done · 状态机驱动 · 门禁向前 / 分级回退</p>
+
+  <section class="diagram">
+    <svg viewBox="0 0 1168 300" role="img" aria-label="dp-workflow 开发工作流状态机图">
+      <defs>
+        <marker id="fwd" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto">
+          <path d="M0,0 L10,5 L0,10 Z" style="fill:var(--edge-fwd)"/>
+        </marker>
+        <marker id="back" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M0,0 L10,5 L0,10 Z" style="fill:var(--edge-back)"/>
+        </marker>
+      </defs>
+
+      <!-- orchestrator entry edge (dashed) -->
+      <g style="stroke:var(--edge-back); fill:none; stroke-width:1.4; stroke-dasharray:4 3">
+        <path d="M84,56 L84,92" marker-end="url(#back)"/>
+      </g>
+
+      <!-- forward edges -->
+      <g style="stroke:var(--edge-fwd); fill:none; stroke-width:1.6">
+        <path d="M152,124 L208,124" marker-end="url(#fwd)"/>
+        <path d="M352,124 L408,124" marker-end="url(#fwd)"/>
+        <path d="M552,124 L608,124" marker-end="url(#fwd)"/>
+        <path d="M752,116 C784,116 784,49 808,49" marker-end="url(#fwd)"/>
+        <path d="M752,132 C784,132 784,191 808,191" marker-end="url(#fwd)"/>
+        <path d="M952,49 C984,49 984,120 1008,120" marker-end="url(#fwd)"/>
+        <path d="M952,191 C984,191 984,128 1008,128" marker-end="url(#fwd)"/>
+      </g>
+
+      <!-- gate labels -->
+      <g style="fill:var(--ink-muted); font-size:9.5px; font-family:ui-monospace,Consolas,monospace; text-anchor:middle">
+        <text x="180" y="116">req_approved</text>
+        <text x="380" y="116">design_approved</text>
+        <text x="580" y="116">impl_complete</text>
+        <text x="770" y="72">tests_passed</text>
+        <text x="770" y="178">tests_passed</text>
+        <text x="978" y="74">review_approved</text>
+        <text x="978" y="178">review_approved</text>
+      </g>
+
+      <!-- backward edges (dashed, below) -->
+      <g style="stroke:var(--edge-back); fill:none; stroke-width:1.4; stroke-dasharray:4 3">
+        <path d="M684,156 L684,236 L480,236 L480,160" marker-end="url(#back)"/>
+        <path d="M284,156 L284,262 L84,262 L84,160" marker-end="url(#back)"/>
+        <path d="M884,220 L884,286 L488,286 L488,160" marker-end="url(#back)"/>
+      </g>
+      <g style="fill:var(--ink-muted); font-size:9.5px; font-family:ui-monospace,Consolas,monospace; text-anchor:middle">
+        <text x="582" y="230">impl_bug</text>
+        <text x="184" y="256">spec_gap</text>
+        <text x="684" y="280">review_feedback</text>
+      </g>
+
+      <!-- nodes -->
+      <!-- 0 dp-workflow (orchestrator entry) -->
+      <g>
+        <rect x="16" y="8" width="136" height="48" rx="8" style="fill:var(--surface); stroke:var(--border); stroke-dasharray:5 3"/>
+        <rect x="16" y="8" width="6" height="48" rx="3" style="fill:var(--s-flow)"/>
+        <circle cx="34" cy="28" r="3" style="fill:var(--s-flow)"/>
+        <text x="42" y="32" style="fill:var(--ink-2); font-size:11px">dp-workflow · 编排</text>
+        <text x="34" y="48" style="fill:var(--ink-muted); font-size:9.5px; font-family:ui-monospace,Consolas,monospace">入口 / 路由</text>
+      </g>
+      <!-- 1 requirements -->
+      <g>
+        <rect x="16" y="92" width="136" height="64" rx="8" style="fill:var(--surface); stroke:var(--border)"/>
+        <rect x="16" y="92" width="6" height="64" rx="3" style="fill:var(--s-req)"/>
+        <circle cx="34" cy="112" r="3" style="fill:var(--s-req)"/>
+        <text x="42" y="116" style="fill:var(--ink-2); font-size:11px">dpwf-req · 需求</text>
+        <text x="34" y="136" style="fill:var(--ink-1); font-size:14.5px; font-weight:700">需求定义</text>
+        <text x="34" y="152" style="fill:var(--ink-muted); font-size:9.5px; font-family:ui-monospace,Consolas,monospace">requirements</text>
+      </g>
+      <!-- 2 design -->
+      <g>
+        <rect x="216" y="92" width="136" height="64" rx="8" style="fill:var(--surface); stroke:var(--border)"/>
+        <rect x="216" y="92" width="6" height="64" rx="3" style="fill:var(--s-dev)"/>
+        <circle cx="234" cy="112" r="3" style="fill:var(--s-dev)"/>
+        <text x="242" y="116" style="fill:var(--ink-2); font-size:11px">dpwf-dev · 开发</text>
+        <text x="234" y="136" style="fill:var(--ink-1); font-size:14.5px; font-weight:700">设计</text>
+        <text x="234" y="152" style="fill:var(--ink-muted); font-size:9.5px; font-family:ui-monospace,Consolas,monospace">design</text>
+      </g>
+      <!-- 3 implementation -->
+      <g>
+        <rect x="416" y="92" width="136" height="64" rx="8" style="fill:var(--surface); stroke:var(--border)"/>
+        <rect x="416" y="92" width="6" height="64" rx="3" style="fill:var(--s-dev)"/>
+        <circle cx="434" cy="112" r="3" style="fill:var(--s-dev)"/>
+        <text x="442" y="116" style="fill:var(--ink-2); font-size:11px">dpwf-dev · 开发</text>
+        <text x="434" y="136" style="fill:var(--ink-1); font-size:14.5px; font-weight:700">实现</text>
+        <text x="434" y="152" style="fill:var(--ink-muted); font-size:9.5px; font-family:ui-monospace,Consolas,monospace">implementation</text>
+      </g>
+      <!-- 4 testing -->
+      <g>
+        <rect x="616" y="92" width="136" height="64" rx="8" style="fill:var(--surface); stroke:var(--border)"/>
+        <rect x="616" y="92" width="6" height="64" rx="3" style="fill:var(--s-dev)"/>
+        <circle cx="634" cy="112" r="3" style="fill:var(--s-dev)"/>
+        <text x="642" y="116" style="fill:var(--ink-2); font-size:11px">dpwf-dev · 开发</text>
+        <text x="634" y="136" style="fill:var(--ink-1); font-size:14.5px; font-weight:700">测试</text>
+        <text x="634" y="152" style="fill:var(--ink-muted); font-size:9.5px; font-family:ui-monospace,Consolas,monospace">testing</text>
+      </g>
+      <!-- 5a comment review -->
+      <g>
+        <rect x="816" y="20" width="136" height="58" rx="8" style="fill:var(--surface); stroke:var(--border)"/>
+        <rect x="816" y="20" width="6" height="58" rx="3" style="fill:var(--s-comment)"/>
+        <circle cx="834" cy="40" r="3" style="fill:var(--s-comment)"/>
+        <text x="842" y="44" style="fill:var(--ink-2); font-size:11px">dpwf-comment · 注释</text>
+        <text x="834" y="64" style="fill:var(--ink-1); font-size:14.5px; font-weight:700">注释审查</text>
+      </g>
+      <!-- 5b code review -->
+      <g>
+        <rect x="816" y="162" width="136" height="58" rx="8" style="fill:var(--surface); stroke:var(--border)"/>
+        <rect x="816" y="162" width="6" height="58" rx="3" style="fill:var(--s-review)"/>
+        <circle cx="834" cy="182" r="3" style="fill:var(--s-review)"/>
+        <text x="842" y="186" style="fill:var(--ink-2); font-size:11px">dpwf-review · 审查</text>
+        <text x="834" y="206" style="fill:var(--ink-1); font-size:14.5px; font-weight:700">代码审查</text>
+      </g>
+      <!-- 6 done -->
+      <g>
+        <rect x="1016" y="92" width="136" height="64" rx="8" style="fill:var(--surface); stroke:var(--border)"/>
+        <rect x="1016" y="92" width="6" height="64" rx="3" style="fill:var(--s-done)"/>
+        <text x="1034" y="136" style="fill:var(--ink-1); font-size:14.5px; font-weight:700">完成</text>
+        <text x="1034" y="152" style="fill:var(--ink-muted); font-size:9.5px; font-family:ui-monospace,Consolas,monospace">done</text>
+      </g>
+    </svg>
+  </section>
+
+  <h2>skill 编排（dp-workflow + 四阶段）</h2>
+  <div class="legend">
+    <span class="item"><span class="dot" style="background:var(--s-flow)"></span>dp-workflow 编排 — 读状态 → 路由到对应阶段 skill</span>
+    <span class="item"><span class="dot" style="background:var(--s-req)"></span>dpwf-req 需求 — 出需求文档（唯一 owner，版本化）</span>
+    <span class="item"><span class="dot" style="background:var(--s-dev)"></span>dpwf-dev 开发 — 讨论需求 → 设计 → 实现 → 测试（loop）</span>
+    <span class="item"><span class="dot" style="background:var(--s-comment)"></span>dpwf-comment 注释 — 实现定稿后审查/补全注释</span>
+    <span class="item"><span class="dot" style="background:var(--s-review)"></span>dpwf-review 审查 — 实现定稿后对照需求 + 设计审查</span>
+  </div>
+
+  <h2>门禁（向前）与回退（分级）</h2>
+  <div class="chips" style="margin-bottom:12px">
+    <span class="chip">门禁：<b>requirements_approved</b> → <b>design_approved</b> → <b>implementation_complete</b> → <b>tests_passed</b> → <b>review_approved</b></span>
+  </div>
+  <div class="chips">
+    <span class="chip">回退：<b>impl_bug</b> → 实现</span>
+    <span class="chip"><b>design_gap</b> → 设计</span>
+    <span class="chip"><b>spec_gap</b> → 需求</span>
+    <span class="chip"><b>new_feature</b> → 需求</span>
+    <span class="chip"><b>review_feedback</b> → 按意见回对应层</span>
+  </div>
+
+  <h2>迁移表</h2>
+  <table>
+    <thead>
+      <tr><th>当前状态</th><th>事件</th><th>下一状态</th><th>动作</th></tr>
+    </thead>
+    <tbody>
+      <tr><td class="mono">requirements</td><td class="mono">requirements_approved</td><td class="mono">design</td><td>需求定稿，进设计</td></tr>
+      <tr><td class="mono">requirements</td><td class="mono">new_feature</td><td class="mono">requirements</td><td>追加条目，版本 +1</td></tr>
+      <tr><td class="mono">design</td><td class="mono">design_approved</td><td class="mono">implementation</td><td>设计定稿，进实现</td></tr>
+      <tr><td class="mono">design</td><td class="mono">design_gap</td><td class="mono">design</td><td>修订设计</td></tr>
+      <tr><td class="mono">design</td><td class="mono">spec_gap</td><td class="mono">requirements</td><td>回退补需求</td></tr>
+      <tr><td class="mono">implementation</td><td class="mono">implementation_complete</td><td class="mono">testing</td><td>实现完成（带注释）</td></tr>
+      <tr><td class="mono">implementation</td><td class="mono">impl_bug</td><td class="mono">implementation</td><td>内环修代码</td></tr>
+      <tr><td class="mono">implementation</td><td class="mono">design_gap</td><td class="mono">design</td><td>回退改设计</td></tr>
+      <tr><td class="mono">implementation</td><td class="mono">spec_gap</td><td class="mono">requirements</td><td>回退补需求</td></tr>
+      <tr><td class="mono">testing</td><td class="mono">tests_passed</td><td class="mono">review</td><td>测试全绿，进审查</td></tr>
+      <tr><td class="mono">testing</td><td class="mono">impl_bug</td><td class="mono">implementation</td><td>内环修代码</td></tr>
+      <tr><td class="mono">testing</td><td class="mono">design_gap</td><td class="mono">design</td><td>回退改设计</td></tr>
+      <tr><td class="mono">testing</td><td class="mono">spec_gap</td><td class="mono">requirements</td><td>回退补需求</td></tr>
+      <tr><td class="mono">review</td><td class="mono">review_approved</td><td class="mono">done</td><td>审查通过</td></tr>
+      <tr><td class="mono">review</td><td class="mono">review_feedback</td><td class="mono">implementation / design / requirements</td><td>打回重改</td></tr>
+      <tr><td class="mono">done</td><td class="mono">new_feature</td><td class="mono">requirements</td><td>新一轮迭代</td></tr>
+    </tbody>
+  </table>
+
+  <h2>会话交接（多窗口协作）</h2>
+  <p style="color:var(--ink-2); font-size:13px; margin:0 0 12px">每个 skill 可跑在独立的 Claude 窗口，上下文不共享，靠文档交接。<b>未交接 = 未完成</b>——窗口结束但没更新状态 / 文档，状态机就停在半路。</p>
+  <div class="rules" style="margin-bottom:14px">
+    <div class="rule">
+      <div class="t">窗口启动（读盘）</div>
+      <div class="d">1. 读 docs/dp-workflow/STATE.md → 看 current_state，判断本窗口跑哪个 skill。<br>2. 读上一环节拥有的文档。<br>3. 按 .claude/skills/ 里该 skill 的定义执行。</div>
+    </div>
+    <div class="rule">
+      <div class="t">窗口结束（落盘，才叫交接）</div>
+      <div class="d">1. 更新自己拥有的文档 + 变更记录（版本 +1）。<br>2. 更新 docs/dp-workflow/STATE.md 的 current_state。<br>3. 只在门禁事件时交接；内环 impl_bug 留在同一窗口。</div>
+    </div>
+  </div>
+  <table>
+    <thead><tr><th>拆法</th><th>安全</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">skill 之间（门禁处）</td><td>✅ 安全</td><td>文档边界清晰，读上一份文档即可续</td></tr>
+      <tr><td class="mono">dpwf-dev 内部「设计 → 实现」</td><td>⚠️ 谨慎</td><td>实现依赖"为什么这么设计"；要拆必须让 docs/dp-workflow/design/DESIGN.md 写够设计理由</td></tr>
+      <tr><td class="mono">dpwf-comment / dpwf-review</td><td>✅ 天然并行</td><td>两个独立窗口，各读代码 + 文档，产出各自反馈</td></tr>
+    </tbody>
+  </table>
+
+  <h2>五条修正规则</h2>
+  <div class="rules">
+    <div class="rule"><div class="n">1</div><div class="t">并行只在实现定稿后</div><div class="d">dpwf-comment ∥ dpwf-review 互相并行，但都不与 dpwf-dev 并行。</div></div>
+    <div class="rule"><div class="n">2</div><div class="t">注释是实现的验收标准</div><div class="d">写代码的 agent 自己写注释，dpwf-comment 只审查。</div></div>
+    <div class="rule"><div class="n">3</div><div class="t">需求单一 owner</div><div class="d">dpwf-dev 不直接改需求，只提 spec_gap / new_feature 回 dpwf-req。</div></div>
+    <div class="rule"><div class="n">4</div><div class="t">测试派生自验收标准</div><div class="d">否则「测试出 bug → loop」无据可依。</div></div>
+    <div class="rule"><div class="n">5</div><div class="t">上下文按模块拆分</div><div class="d">单会话只做同一模块，避免上下文膨胀。</div></div>
+  </div>
+
+  <footer>控制流定义见 .claude/skills/dp-workflow/templates/STATE.md · skill 约定见 .claude/skills/（dp-workflow + 四阶段）· 终止条件：验收标准全过 + review_approved，或预算耗尽</footer>
+</div>
+
+<script>
+  const root = document.documentElement;
+  const btn = document.getElementById('themeBtn');
+  const modes = ['light', 'dark'];
+  btn.addEventListener('click', () => {
+    const cur = root.getAttribute('data-theme');
+    const next = cur === 'light' ? 'dark' : 'light';
+    root.setAttribute('data-theme', next);
+  });
+</script>
+</body>
+</html>
