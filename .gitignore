@@ -1,0 +1,19 @@
+# 构建目录
+build/
+build-*/
+cmake-build-*/
+
+# 跑出来的数据目录，里面是 ops.log / rank.dat / demo.log，都能重新生成
+demo_data/
+bench_data/
+crash_data/
+sample_data/
+
+# 数据文件本身，防止在别的目录名下漏掉
+*.exe
+*.obj
+*.o
+*.a
+ops.log
+rank.dat
+rank.dat.tmp
