@@ -1,6 +1,6 @@
 <!--
  * @Author: Zhuangpx
- * @LastEditTime: 2026-10-14 16:59:04
+ * @LastEditTime: 2026-10-14 17:22:09
 -->
 # README
 
@@ -13,7 +13,7 @@
 面试官可以关注：
 1. /docs/history.md，/promot：我开发过程中一些记录流程和使用的提示词
 2. README.md：的运行验证 我拟定的一套演示demo以及结果
-3. 代码本身
+3. 代码&需求文档&设计文档
 
 ## 运行验证
 
