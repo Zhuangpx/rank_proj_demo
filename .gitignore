@@ -3,17 +3,23 @@ build/
 build-*/
 cmake-build-*/
 
-# 跑出来的数据目录，里面是 ops.log / rank.dat / demo.log，都能重新生成
-demo_data/
+# 压测和崩溃测试跑出来的数据目录，内容能重新生成
 bench_data/
 crash_data/
 sample_data/
 
-# 数据文件本身，防止在别的目录名下漏掉
+# 编译产物
 *.exe
 *.obj
 *.o
 *.a
+
+# 数据文件，防止在别的目录名下漏掉
 ops.log
 rank.dat
 rank.dat.tmp
+
+# demo_data 是演示跑出来的结果，要提交。
+# 这两条得写在上面那几条后面才管用，顺序反了就被盖掉了。
+!demo_data/
+!demo_data/*
